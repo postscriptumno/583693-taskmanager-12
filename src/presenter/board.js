@@ -1,22 +1,26 @@
-import BoardView from "./view/board.js";
-import SortView from "./view/sort.js";
-import TaskListView from "./view/task-list.js";
-import LoadMoreButtonView from "./view/load-more-button.js";
-import NoTaskView from "./view/no-task.js";
-import TaskView from "./view/task.js";
-import TaskEditView from "./view/task-edit.js";
-import {render, RenderPosition, replace, remove} from "./utils/render.js";
+import BoardView from "../view/board.js";
+import SortView from "../view/sort.js";
+import TaskListView from "../view/task-list.js";
+import LoadMoreButtonView from "../view/load-more-button.js";
+import NoTaskView from "../view/no-task.js";
+import TaskView from "../view/task.js";
+import TaskEditView from "../view/task-edit.js";
+import {render, RenderPosition, replace, remove} from "../utils/render.js";
 
 const TASKS_COUNT_PER_STEP = 8;
 
 export default class Board {
   constructor(boardContainer) {
     this._boardContainer = boardContainer;
+    this._renderedTaskCount = TASKS_COUNT_PER_STEP;
 
     this._boardComponent = new BoardView();
     this._sortComponent = new SortView();
     this._taskListComponent = new TaskListView();
     this._noTaskComponent = new NoTaskView();
+    this._loadMoreButtonComponent = new LoadMoreButtonView();
+
+    this._handleLoadMoreButtonClick = this._handleLoadMoreButtonClick.bind(this);
   }
 
   init(boardTasks) {
@@ -62,7 +66,7 @@ export default class Board {
       document.removeEventListener(`keydown`, onEscKeyDown);
     });
 
-    render(this._taskListElement, taskComponent, RenderPosition.BEFOREEND);
+    render(this._taskListComponent, taskComponent, RenderPosition.BEFOREEND);
   }
 
   _renderTasks(from, to) {
@@ -75,25 +79,28 @@ export default class Board {
     render(this._boardComponent, this._noTaskComponent, RenderPosition.AFTERBEGIN);
   }
 
-  _renderLoadMoreButton() {
-    let renderedTaskCount = TASKS_COUNT_PER_STEP;
+  _handleLoadMoreButtonClick() {
+    this._renderTasks(this._renderedTaskCount, this._renderedTaskCount + this._renderedTaskCount);
+    this._renderedTaskCount += this._renderedTaskCount;
 
-    const loadMoreButtonComponent = new LoadMoreButtonView();
-
-    render(this._boardComponent, loadMoreButtonComponent, RenderPosition.BEFOREEND);
-
-    loadMoreButtonComponent.setClickHandler(() => {
-      this._boardTasks
-        .slice(renderedTaskCount, renderedTaskCount + TASKS_COUNT_PER_STEP)
-        .forEach((boardTask) => this._renderTask(boardTask));
-
-      renderedTaskCount += TASKS_COUNT_PER_STEP;
-
-      if (renderedTaskCount >= this._boardTasks.length) {
-        remove(loadMoreButtonComponent);
-      }
-    });
+    if (this._renderedTaskCount >= this._boardTasks.length) {
+      remove(this._loadMoreButtonComponent);
+    }
   }
+
+  _renderLoadMoreButton() {
+    render(this._boardComponent, this._loadMoreButtonComponent, RenderPosition.BEFOREEND);
+    this._loadMoreButtonComponent.setClickHandler(this._handleLoadMoreButtonClick);
+  }
+
+  _renderTaskList() {
+    this._renderTasks(0, Math.min(this._boardTasks.length, TASKS_COUNT_PER_STEP));
+
+    if (this._boardTasks.length > TASKS_COUNT_PER_STEP) {
+      this._renderLoadMoreButton();
+    }
+  }
+
 
   _renderBoard() {
     if (this._boardTasks.every((task) => task.isArchive)) {
@@ -103,10 +110,6 @@ export default class Board {
 
     this._renderSort();
 
-    this._renderTasks(0, Math.min(this._boardTasks.length, TASKS_COUNT_PER_STEP));
-
-    if (this._boardTasks.length > TASKS_COUNT_PER_STEP) {
-      this._renderLoadMoreButton();
-    }
+    this._renderTaskList();
   }
 }
